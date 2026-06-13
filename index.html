@@ -1419,12 +1419,7 @@ document.getElementById('orb-btn').addEventListener('click', () => {
   if (orbState === 'listening') { stopListening(); setOrbState('idle'); return; }
   if (orbState === 'thinking') return;
 
-  if (!getApiKey()) {
-    const msg = 'Please add your Anthropic API key in Settings first.';
-    document.getElementById('ai-text').textContent = msg;
-    speak(msg);
-    return;
-  }
+
 
   // First tap — greet
   if (voiceConvHistory.length === 0) {
@@ -1462,11 +1457,6 @@ document.querySelectorAll('.qa-btn').forEach(btn => {
       summary: "Let me give you a summary of your day."
     };
     const text = prompts[cmd];
-    if (!getApiKey() && cmd !== 'log') {
-      showToast('Add API key in Settings first');
-      navigateTo('settings');
-      return;
-    }
     document.getElementById('ai-text').textContent = text;
     speak(text, () => {
       if (cmd === 'summary') {
@@ -1491,7 +1481,6 @@ async function generateSummary(forSpeech = false) {
     if (forSpeech) speak(msg); else showToast(msg);
     return;
   }
-  if (!getApiKey()) { showToast('Add API key in Settings first'); return; }
 
   setOrbState('thinking');
   const acts = entries.filter(e=>e.type==='activity');
