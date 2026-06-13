@@ -1198,16 +1198,39 @@ function showToast(msg, duration=2000) {
 function speak(text, onEnd) {
   if (!ttsEnabled || !('speechSynthesis' in window)) { if(onEnd) onEnd(); return; }
   window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'en-IN';
-  utt.rate = 1.05;
-  utt.pitch = 1;
-  utt.volume = 1;
-  utt.onend = () => { setOrbState('idle'); if(onEnd) onEnd(); };
-  utt.onerror = () => { setOrbState('idle'); if(onEnd) onEnd(); };
-  setOrbState('speaking');
-  document.getElementById('ai-text').textContent = text;
-  window.speechSynthesis.speak(utt);
+
+  const doSpeak = () => {
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'en-IN';
+    utt.rate = 1.0;
+    utt.pitch = 1;
+    utt.volume = 1;
+
+    // Try to find a good voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => v.lang === 'en-IN') ||
+                      voices.find(v => v.lang.startsWith('en')) ||
+                      voices[0];
+    if (preferred) utt.voice = preferred;
+
+    utt.onend = () => { setOrbState('idle'); if(onEnd) onEnd(); };
+    utt.onerror = () => { setOrbState('idle'); if(onEnd) onEnd(); };
+    setOrbState('speaking');
+    document.getElementById('ai-text').textContent = text;
+    window.speechSynthesis.speak(utt);
+  };
+
+  // Voices may not be loaded yet on Android
+  if (window.speechSynthesis.getVoices().length > 0) {
+    doSpeak();
+  } else {
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.onvoiceschanged = null;
+      doSpeak();
+    };
+    // Fallback if voices never load
+    setTimeout(() => { if(orbState !== 'speaking') doSpeak(); }, 500);
+  }
 }
 
 function stopSpeaking() {
@@ -1364,9 +1387,11 @@ RULES:
 }
 
 async function processVoiceInput(userText) {
+  if (!userText || !userText.trim()) { setOrbState('idle'); return; }
   setOrbState('thinking');
   document.getElementById('user-text').textContent = `"${userText}"`;
   document.getElementById('ai-text').className = 'ai-text dim';
+  document.getElementById('ai-text').textContent = 'Processing...';
 
   voiceConvHistory.push({ role:'user', content: userText });
 
@@ -1418,24 +1443,25 @@ async function processVoiceInput(userText) {
     document.getElementById('ai-text').className = 'ai-text';
     document.getElementById('ai-text').innerHTML = displayText.replace(/\n/g, '<br/>');
 
-    // Speak the response, then auto-listen if in active mode
-    speak(displayText, () => {
-      // Auto-listen for continuation
-      if (voiceConvHistory.length > 0) {
-        setTimeout(() => {
-          startListening(
-            text => processVoiceInput(text),
-            interim => { document.getElementById('user-text').textContent = interim; }
-          );
-        }, 500);
+    // Speak response
+    speak(displayText, null);
+
+    // Auto-listen after a delay — don't wait for TTS to finish
+    setTimeout(() => {
+      if (orbState !== 'listening' && orbState !== 'thinking') {
+        startListening(
+          text => processVoiceInput(text),
+          interim => { document.getElementById('user-text').textContent = interim; }
+        );
       }
-    });
+    }, 2000);
 
   } catch(e) {
     setOrbState('idle');
-    const err = 'Something went wrong. Check your API key in Settings.';
+    const err = `Error: ${e.message}. Check Settings.`;
     document.getElementById('ai-text').className = 'ai-text';
     document.getElementById('ai-text').textContent = err;
+    showToast(err, 4000);
     if (ttsEnabled) speak(err);
   }
 }
@@ -1461,12 +1487,14 @@ document.getElementById('orb-btn').addEventListener('click', () => {
       : `${greeting} Rishi! You have ${entryCount} entries logged today. What's happening now?`;
 
     document.getElementById('ai-text').innerHTML = greetText;
-    speak(greetText, () => {
+    speak(greetText, null);
+    // Don't wait for TTS - start listening after short delay (Android TTS can block recognition)
+    setTimeout(() => {
       startListening(
         text => processVoiceInput(text),
         interim => { document.getElementById('user-text').textContent = interim; }
       );
-    });
+    }, 800);
   } else {
     startListening(
       text => processVoiceInput(text),
