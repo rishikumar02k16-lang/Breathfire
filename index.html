@@ -1338,12 +1338,20 @@ function setOrbState(state) {
 async function callAI(messages, system, maxTokens=600) {
   const body = { model:'claude-haiku-4-5-20251001', max_tokens:maxTokens, messages };
   if (system) body.system = system;
-  const res = await fetch('/.netlify/functions/chat', {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': getApiKey(),
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
     body: JSON.stringify(body)
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`${res.status}: ${errText}`);
+  }
   const json = await res.json();
   return json.content?.[0]?.text || '';
 }
@@ -1473,6 +1481,15 @@ document.getElementById('orb-btn').addEventListener('click', () => {
   if (orbState === 'speaking') { stopSpeaking(); return; }
   if (orbState === 'listening') { stopListening(); setOrbState('idle'); return; }
   if (orbState === 'thinking') return;
+
+  // Check API key first
+  if (!getApiKey()) {
+    const msg = 'Please add your Anthropic API key in Settings first.';
+    document.getElementById('ai-text').textContent = msg;
+    speak(msg, null);
+    setTimeout(() => navigateTo('settings'), 2000);
+    return;
+  }
 
 
 
