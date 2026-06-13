@@ -1235,20 +1235,49 @@ function startListening(onResult, onInterim) {
   if (!recognition) { showToast('Voice not supported in this browser'); return; }
   recognition.lang = getLang();
 
-  recognition.onstart = () => { isListening = true; setOrbState('listening'); };
-  recognition.onresult = e => {
-    let interim = '', final = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) final += e.results[i][0].transcript;
-      else interim += e.results[i][0].transcript;
-    }
-    if (onInterim && interim) onInterim(interim);
-    if (final && onResult) onResult(final.trim());
-  };
-  recognition.onerror = e => { isListening = false; setOrbState('idle'); };
-  recognition.onend = () => { isListening = false; };
+  let finalTranscript = '';
+  let interimTranscript = '';
 
-  try { recognition.start(); } catch(e) {}
+  recognition.onstart = () => { isListening = true; setOrbState('listening'); finalTranscript = ''; };
+
+  recognition.onresult = e => {
+    finalTranscript = '';
+    interimTranscript = '';
+    for (let i = 0; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript;
+      } else {
+        interimTranscript += e.results[i][0].transcript;
+      }
+    }
+    if (onInterim && interimTranscript) {
+      onInterim(interimTranscript);
+    }
+    if (onInterim && finalTranscript) {
+      onInterim(finalTranscript);
+    }
+  };
+
+  recognition.onerror = e => {
+    console.log('Speech error:', e.error);
+    isListening = false;
+    setOrbState('idle');
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    // On Android, onend fires after speech stops — trigger callback here
+    if (finalTranscript && finalTranscript.trim()) {
+      onResult(finalTranscript.trim());
+    } else if (interimTranscript && interimTranscript.trim()) {
+      // Fallback: use interim if no final result (common on Android)
+      onResult(interimTranscript.trim());
+    } else {
+      setOrbState('idle');
+    }
+  };
+
+  try { recognition.start(); } catch(e) { console.log('Recognition start error:', e); }
 }
 
 function stopListening() {
