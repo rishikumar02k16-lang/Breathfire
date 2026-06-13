@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>Daily Journal</title>
+<meta name="description" content="Personal productivity journal with voice logging, habit check-ins and AI summaries"/>
+<meta name="theme-color" content="#ede8df"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Journal"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<style>
+:root {
+  --ink:       #1a1208;
+  --ink-2:     #3d2f1a;
+  --ink-3:     #6b5a42;
+  --ink-4:     #a0896c;
+  --ink-5:     #c9b89a;
+  --paper:     #f7f3ec;
+  --paper-2:   #ede8df;
+  --paper-3:   #e2dbd0;
+  --paper-4:   #d4ccbe;
+  --accent:    #c2692a;
+  --accent-2:  #e8a96b;
+  --accent-bg: #f9ede0;
+  --green:     #2a6b4a;
+  --green-bg:  #e8f2ec;
+  --red:       #a0302a;
+  --red-bg:    #f5e8e7;
+  --blue:      #2a4a7a;
+  --blue-bg:   #e8eef5;
+  --purple:    #5a3a8a;
+  --purple-bg: #f0eaf8;
+  --shadow:    rgba(26,18,8,0.07);
+  --shadow-md: rgba(26,18,8,0.13);
+  --serif: 'Lora', Georgia, serif;
+  --mono:  'DM Mono', monospace;
+  --sans:  'DM Sans', system-ui, sans-serif;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-xl: 20px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--paper-4);border-radius:4px}
+body{font-family:var(--sans);background:var(--paper-2);color:var(--ink);min-height:100vh;line-height:1.5}
+.app{max-width:430px;margin:0 auto;min-height:100vh;padding-bottom:90px}
+
+/* TOPBAR */
+.topbar{padding:18px 20px 12px;display:flex;justify-content:space-between;align-items:flex-end;position:sticky;top:0;z-index:10;background:var(--paper-2);border-bottom:1px solid var(--paper-3)}
+.app-eyebrow{font-family:var(--mono);font-size:10px;color:var(--ink-4);letter-spacing:.18em;text-transform:uppercase;margin-bottom:2px}
+.app-title{font-family:var(--serif);font-size:25px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1}
+.app-title em{font-style:italic;color:var(--accent)}
+.date-chip{font-family:var(--mono);font-size:11px;color:var(--ink-3);background:var(--paper-3);border:1px solid var(--paper-4);border-radius:var(--r-md);padding:5px 10px;line-height:1}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--paper);border-top:1px solid var(--paper-3);display:flex;z-index:20;padding-bottom:env(safe-area-inset-bottom,0);box-shadow:0 -4px 20px var(--shadow)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px 8px;border:none;background:none;cursor:pointer;color:var(--ink-4);font-family:var(--sans);font-size:10px;font-weight:400;letter-spacing:.02em;transition:color 0.2s;position:relative}
+.nav-btn i{font-size:19px;transition:transform 0.2s}
+.nav-btn.active{color:var(--accent)}
+.nav-btn.active i{transform:translateY(-1px)}
+.nav-btn.active::after{content:'';position:absolute;bottom:0;left:30%;width:40%;height:2px;background:var(--accent);border-radius:2px 2px 0 0}
+
+/* PAGES */
+.page{display:none;animation:fadeUp .2s ease}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* SECTIONS & CARDS */
+.sec{margin:0 14px 10px}
+.card{background:var(--paper);border:1px solid var(--paper-3);border-radius:var(--r-xl);padding:15px;box-shadow:0 2px 10px var(--shadow)}
+.card-label{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--ink-4);letter-spacing:.15em;text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center;gap:6px}
+.card-label i{font-size:13px}
+.badge-sm{margin-left:auto;font-family:var(--mono);font-size:10px;background:var(--paper-2);color:var(--ink-3);border-radius:20px;padding:2px 8px;border:1px solid var(--paper-3)}
+
+/* PAGE INTRO */
+.page-intro{padding:14px 18px 6px}
+.page-intro-title{font-family:var(--serif);font-size:19px;font-weight:600;font-style:italic;color:var(--ink);margin-bottom:1px}
+.page-intro-sub{font-family:var(--mono);font-size:10px;color:var(--ink-4);letter-spacing:.1em;text-transform:uppercase}
+
+/* SETTINGS */
+.settings-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--paper-2)}
+.settings-row:last-child{border-bottom:none}
+.settings-icon{width:36px;height:36px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px}
+.settings-info{flex:1;min-width:0}
+.settings-label{font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-2)}
+.settings-sub{font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-top:2px}
+.settings-status{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:20px;flex-shrink:0}
+.status-set{background:var(--green-bg);color:var(--green)}
+.status-unset{background:var(--red-bg);color:var(--red)}
+.api-input{width:100%;font-family:var(--mono);font-size:12px;padding:9px 11px;border-radius:var(--r-md);border:1px solid var(--paper-3);background:var(--paper-2);color:var(--ink-2);outline:none;margin-bottom:8px;transition:border-color .2s,background .2s}
+.api-input:focus{border-color:var(--ink-4);background:var(--paper)}
+.api-save-btn{font-family:var(--sans);font-size:12px;font-weight:500;background:var(--ink);color:var(--paper);border:none;border-radius:var(--r-md);padding:8px 18px;cursor:pointer;transition:opacity .15s}
+.api-save-btn:active{opacity:.8}
+.api-note{font-size:11px;color:var(--ink-4);margin-top:8px;line-height:1.6}
+.api-ok{font-size:11px;color:var(--green);margin-top:5px;display:none;font-family:var(--mono)}
+.key-form{margin-top:12px;padding-top:12px;border-top:1px solid var(--paper-2)}
+.key-form-label{font-family:var(--mono);font-size:10px;color:var(--ink-4);letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px}
+.key-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.key-clear-btn{font-family:var(--sans);font-size:12px;color:var(--red);background:var(--red-bg);border:1px solid #e09090;border-radius:var(--r-md);padding:7px 14px;cursor:pointer;transition:opacity .15s}
+.key-clear-btn:active{opacity:.8}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:var(--red);position:absolute;top:8px;right:calc(50% - 14px);display:none}
+.settings-divider{font-family:var(--mono);font-size:10px;color:var(--ink-5);letter-spacing:.12em;text-transform:uppercase;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--paper-3)}
+
+/* VOICE ROW */
+.voice-row{display:flex;gap:7px;align-items:center;margin-bottom:7px}
+.text-input{flex:1;font-family:var(--sans);font-size:14px;padding:9px 12px;border-radius:var(--r-md);border:1px solid var(--paper-3);background:var(--paper-2);color:var(--ink);outline:none;transition:border-color .2s,background .2s}
+.text-input:focus{border-color:var(--ink-4);background:var(--paper)}
+.text-input::placeholder{color:var(--ink-5)}
+.mic-btn{width:38px;height:38px;border-radius:var(--r-md);border:1px solid var(--paper-3);background:var(--paper-2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:16px;flex-shrink:0;transition:all .2s}
+.mic-btn:hover{border-color:var(--ink-4);color:var(--ink)}
+.mic-btn.listening{background:var(--red-bg);border-color:var(--red);color:var(--red);animation:micPulse 1.2s ease-in-out infinite}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(160,48,42,.2)}50%{box-shadow:0 0 0 6px rgba(160,48,42,0)}}
+.add-btn{font-family:var(--sans);font-size:13px;font-weight:500;background:var(--ink);color:var(--paper);border:none;border-radius:var(--r-md);padding:0 15px;height:38px;cursor:pointer;display:flex;align-items:center;gap:5px;flex-shrink:0;transition:opacity .15s,transform .1s}
+.add-btn:active{opacity:.85;transform:scale(.97)}
+.add-btn i{font-size:14px}
+.field-hint{font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-top:3px}
+
+/* TYPE CHIPS */
+.type-selector{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.type-chip{font-family:var(--sans);font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--paper-3);background:var(--paper-2);cursor:pointer;color:var(--ink-4);transition:all .15s}
+.type-chip[data-type="activity"].sel{background:var(--blue-bg);border-color:#7aace0;color:var(--blue);font-weight:500}
+.type-chip[data-type="project"].sel{background:var(--green-bg);border-color:#7ac4a0;color:var(--green);font-weight:500}
+.type-chip[data-type="blocker"].sel{background:var(--red-bg);border-color:#e09090;color:var(--red);font-weight:500}
+.type-chip[data-type="note"].sel{background:var(--accent-bg);border-color:var(--accent-2);color:var(--accent);font-weight:500}
+
+/* MANUAL ENTRY */
+.manual-toggle-btn{font-family:var(--sans);font-size:12px;color:var(--ink-4);cursor:pointer;background:none;border:none;padding:0;margin-top:6px;display:flex;align-items:center;gap:4px;transition:color .15s}
+.manual-toggle-btn:hover{color:var(--ink-2)}
+.manual-toggle-btn i{font-size:13px}
+.manual-panel{margin-top:10px;padding:12px;background:var(--paper-2);border-radius:var(--r-md);border:1px solid var(--paper-3);display:none;animation:fadeUp .15s ease}
+.manual-panel.open{display:block}
+.mrow{display:flex;gap:7px;margin-bottom:8px}
+.time-input{font-family:var(--mono);font-size:13px;padding:8px 9px;border-radius:var(--r-md);border:1px solid var(--paper-3);background:var(--paper);color:var(--ink);outline:none;width:98px;flex-shrink:0;transition:border-color .2s}
+.time-input:focus{border-color:var(--ink-4)}
+.madd-btn{font-family:var(--sans);font-size:12px;font-weight:500;background:var(--ink-2);color:var(--paper);border:none;border-radius:var(--r-md);padding:8px 15px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:opacity .15s}
+.madd-btn:active{opacity:.8}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 14px 10px}
+.stat-card{background:var(--paper);border:1px solid var(--paper-3);border-radius:var(--r-lg);padding:12px 14px;box-shadow:0 1px 5px var(--shadow)}
+.stat-label{font-family:var(--mono);font-size:10px;color:var(--ink-4);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.stat-val{font-family:var(--serif);font-size:28px;font-weight:600;color:var(--ink);line-height:1}
+
+/* FEED */
+.feed{display:flex;flex-direction:column}
+.feed-entry{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--paper-2)}
+.feed-entry:last-child{border-bottom:none}
+.feed-dot-col{display:flex;flex-direction:column;align-items:center;padding-top:4px}
+.feed-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.feed-line{width:1px;background:var(--paper-3);flex:1;margin-top:4px;min-height:10px}
+.feed-body{flex:1;min-width:0}
+.feed-meta{display:flex;align-items:center;gap:5px;margin-bottom:2px;flex-wrap:wrap}
+.feed-time{font-family:var(--mono);font-size:10px;color:var(--ink-4)}
+.feed-tag{font-family:var(--mono);font-size:9px;font-weight:500;padding:2px 7px;border-radius:20px;letter-spacing:.05em;text-transform:uppercase}
+.tag-activity{background:var(--blue-bg);color:var(--blue)}.tag-project{background:var(--green-bg);color:var(--green)}.tag-blocker{background:var(--red-bg);color:var(--red)}.tag-note{background:var(--accent-bg);color:var(--accent)}
+.feed-text{font-family:var(--sans);font-size:14px;color:var(--ink-2);line-height:1.4;word-break:break-word}
+.feed-del{background:none;border:none;cursor:pointer;color:var(--ink-5);font-size:13px;padding:2px 4px;border-radius:var(--r-sm);opacity:0;flex-shrink:0;transition:opacity .2s,color .15s}
+.feed-entry:hover .feed-del{opacity:1}
+.feed-del:hover{color:var(--red)}
+
+/* GOALS */
+.goal-item{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid var(--paper-2)}
+.goal-item:last-child{border-bottom:none}
+.goal-check{width:19px;height:19px;border-radius:var(--r-sm);border:1.5px solid var(--paper-4);background:var(--paper-2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .2s}
+.goal-check.done{background:var(--green);border-color:var(--green)}
+.goal-check i{font-size:11px;color:var(--green-bg)}
+.goal-text{font-family:var(--sans);font-size:14px;color:var(--ink-2);line-height:1.4;flex:1;transition:all .2s}
+.goal-text.done{text-decoration:line-through;color:var(--ink-5)}
+.goal-del{background:none;border:none;cursor:pointer;color:var(--ink-5);font-size:13px;padding:2px;opacity:0;transition:opacity .2s}
+.goal-item:hover .goal-del{opacity:1}
+.goal-del:hover{color:var(--red)}
+.result-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:20px;flex-shrink:0;margin-top:3px;letter-spacing:.04em}
+.badge-achieved{background:var(--green-bg);color:var(--green)}.badge-missed{background:var(--red-bg);color:var(--red)}
+
+/* REVIEW BANNER */
+.review-banner{margin:12px 14px 8px;background:var(--blue-bg);border:1px solid #b0cbe8;border-radius:var(--r-xl);padding:13px 15px}
+.review-banner-title{font-family:var(--serif);font-size:13px;font-weight:600;font-style:italic;color:var(--blue);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.review-item{display:flex;align-items:center;gap:7px;margin-top:5px;font-size:12px;color:var(--blue);font-family:var(--sans)}
+
+/* HABITS */
+.habit-row{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--paper-2)}
+.habit-row:last-child{border-bottom:none}
+.habit-icon-wrap{width:36px;height:36px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px}
+.habit-info{flex:1;min-width:0}
+.habit-name{font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-2)}
+.habit-streak{font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-top:1px}
+.habit-streak.on{color:var(--accent)}
+.habit-btns{display:flex;gap:5px;flex-shrink:0}
+.hbtn{width:32px;height:32px;border-radius:var(--r-md);border:1px solid var(--paper-3);background:var(--paper-2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-size:14px;transition:all .2s}
+.hbtn.yes{background:var(--green-bg);border-color:#7ac4a0;color:var(--green)}
+.hbtn.no{background:var(--red-bg);border-color:#e09090;color:var(--red)}
+
+/* WEEK GRID */
+.week-habit{margin-bottom:14px}
+.week-habit-hd{display:flex;align-items:center;gap:6px;font-family:var(--sans);font-size:12px;font-weight:500;color:var(--ink-3);margin-bottom:5px}
+.week-habit-hd i{font-size:13px}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.wcell{border-radius:var(--r-sm);padding:5px 0;text-align:center;font-family:var(--mono);font-size:9px;font-weight:500;transition:transform .15s}
+.wcell:hover{transform:scale(1.1)}
+.wcell.done-y{background:var(--green);color:var(--green-bg)}
+.wcell.done-n{background:var(--red-bg);color:var(--red);border:1px solid #e8b0b0}
+.wcell.done-none{background:var(--paper-2);color:var(--ink-5);border:1px solid var(--paper-3)}
+
+/* CHAT */
+.chat-area{background:var(--paper-2);border:1px solid var(--paper-3);border-radius:var(--r-lg);padding:12px;min-height:140px;max-height:270px;overflow-y:auto;margin-bottom:9px;display:flex;flex-direction:column;gap:9px;scroll-behavior:smooth}
+.bubble{max-width:86%;padding:9px 13px;font-size:13px;line-height:1.5;font-family:var(--sans)}
+.bubble.ai{background:var(--paper);border:1px solid var(--paper-3);color:var(--ink-2);align-self:flex-start;border-radius:4px 16px 16px 16px;box-shadow:0 1px 4px var(--shadow)}
+.bubble.user{background:var(--ink-2);color:var(--paper);align-self:flex-end;border-radius:16px 4px 16px 16px}
+.bubble.loading{color:var(--ink-5);font-family:var(--mono);font-size:11px;font-style:italic;background:none;border:none;padding:4px 0;box-shadow:none;align-self:flex-start}
+.chat-input-row{display:flex;gap:7px}
+.send-btn{font-family:var(--sans);font-size:13px;font-weight:500;background:var(--ink);color:var(--paper);border:none;border-radius:var(--r-md);padding:0 14px;height:38px;cursor:pointer;display:flex;align-items:center;gap:5px;flex-shrink:0;transition:opacity .15s}
+.send-btn:active{opacity:.8}
+
+/* SUMMARY */
+.summary-box{background:var(--paper-2);border:1px solid var(--paper-3);border-left:3px solid var(--accent);border-radius:0 var(--r-lg) var(--r-lg) 0;padding:14px 16px;font-family:var(--serif);font-size:14px;color:var(--ink-2);line-height:1.75;white-space:pre-wrap}
+.gen-btn{width:100%;margin-top:9px;background:var(--paper-2);border:1px solid var(--paper-3);border-radius:var(--r-md);padding:9px;font-family:var(--sans);font-size:13px;color:var(--ink-3);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s}
+.gen-btn:hover{background:var(--paper-3);color:var(--ink)}
+.gen-btn:disabled{opacity:.4;cursor:not-allowed}
+.gen-btn i{font-size:15px}
+
+/* BARS */
+.bar-row{margin-bottom:10px}
+.bar-label-row{display:flex;justify-content:space-between;margin-bottom:4px}
+.bar-name{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--ink-2)}
+.bar-dur{font-family:var(--mono);font-size:11px;color:var(--ink-4)}
+.bar-bg{height:5px;background:var(--paper-2);border-radius:99px;overflow:hidden;border:1px solid var(--paper-3)}
+.bar-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+
+/* HISTORY */
+.history-day{padding:12px 0;border-bottom:1px solid var(--paper-2)}
+.history-day:last-child{border-bottom:none}
+.history-day-hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.history-day-date{font-family:var(--serif);font-size:15px;font-weight:600;font-style:italic;color:var(--ink)}
+.history-day-count{font-family:var(--mono);font-size:10px;color:var(--ink-5)}
+.history-chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px}
+.hchip{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:20px}
+.hchip-g{background:var(--green-bg);color:var(--green)}.hchip-p{background:var(--purple-bg);color:var(--purple)}.hchip-a{background:var(--accent-bg);color:var(--accent)}
+.history-snippet{font-family:var(--serif);font-size:12px;font-style:italic;color:var(--ink-3);line-height:1.5}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:24px 16px;color:var(--ink-5)}
+.empty-state i{font-size:26px;display:block;margin-bottom:8px;opacity:.4}
+.empty-state p{font-family:var(--serif);font-size:13px;font-style:italic}
+/* INSTALL BANNER */
+.install-banner{display:none;position:fixed;bottom:76px;left:50%;transform:translateX(-50%);width:calc(100% - 28px);max-width:402px;background:var(--ink-2);border-radius:var(--r-xl);padding:13px 15px;z-index:30;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(26,18,8,.28);animation:slideUp .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.install-icon{width:40px;height:40px;border-radius:var(--r-md);background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.install-text{flex:1;min-width:0}
+.install-title{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--paper);font-style:italic;margin-bottom:1px}
+.install-sub{font-family:var(--mono);font-size:10px;color:var(--ink-5);letter-spacing:.04em}
+.install-actions{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
+.install-add-btn{font-family:var(--sans);font-size:12px;font-weight:500;background:var(--accent);color:#fff8f2;border:none;border-radius:var(--r-md);padding:6px 14px;cursor:pointer;white-space:nowrap}
+.install-skip{font-family:var(--mono);font-size:10px;color:var(--ink-5);background:none;border:none;cursor:pointer;text-align:center;padding:2px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div>
+      <div class="app-eyebrow">Personal</div>
+      <div class="app-title">Daily <em>Journal</em></div>
+    </div>
+    <div class="date-chip" id="date-chip"></div>
+  </div>
+
+  <!-- TODAY -->
+  <div class="page active" id="page-today">
+    <div class="page-intro">
+      <div class="page-intro-title">What's happening?</div>
+      <div class="page-intro-sub">Live log · <span id="now-time-label"></span></div>
+    </div>
+    <div class="sec" style="margin-top:10px">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-microphone"></i> New entry</div>
+        <div class="type-selector">
+          <button class="type-chip sel" data-type="activity">Activity</button>
+          <button class="type-chip" data-type="project">Project</button>
+          <button class="type-chip" data-type="blocker">Blocker</button>
+          <button class="type-chip" data-type="note">Note</button>
+        </div>
+        <div class="voice-row">
+          <button class="mic-btn" id="mic-log" aria-label="Voice"><i class="ti ti-microphone"></i></button>
+          <input class="text-input" type="text" id="log-input" placeholder="Speak or type your entry..." />
+          <button class="add-btn" id="log-go"><i class="ti ti-plus"></i> Add</button>
+        </div>
+        <button class="manual-toggle-btn" id="manual-toggle"><i class="ti ti-clock"></i> Add a past entry</button>
+        <div class="manual-panel" id="manual-panel">
+          <div class="mrow">
+            <input class="time-input" type="time" id="m-time" />
+            <input class="text-input" type="text" id="m-text" placeholder="What were you doing?" style="flex:1" />
+          </div>
+          <div class="type-selector" id="manual-type-sel">
+            <button class="type-chip sel" data-mtype="activity">Activity</button>
+            <button class="type-chip" data-mtype="project">Project</button>
+            <button class="type-chip" data-mtype="blocker">Blocker</button>
+            <button class="type-chip" data-mtype="note">Note</button>
+          </div>
+          <button class="madd-btn" id="m-add"><i class="ti ti-corner-down-right"></i> Insert</button>
+        </div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Entries</div><div class="stat-val" id="s-entries">0</div></div>
+      <div class="stat-card"><div class="stat-label">Blockers</div><div class="stat-val" id="s-blockers">0</div></div>
+    </div>
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-timeline"></i> Today's log <span class="badge-sm" id="feed-count" style="display:none"></span></div>
+        <div class="feed" id="feed"><div class="empty-state"><i class="ti ti-feather"></i><p>Nothing yet — your day awaits</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GOALS -->
+  <div class="page" id="page-goals">
+    <div id="yday-review"></div>
+    <div class="page-intro" style="padding-top:12px">
+      <div class="page-intro-title">Goals &amp; intentions</div>
+      <div class="page-intro-sub">Plan tomorrow · review today</div>
+    </div>
+    <div class="sec" style="margin-top:10px">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-target"></i> Set a goal for tomorrow</div>
+        <div class="voice-row">
+          <button class="mic-btn" id="mic-goal" aria-label="Voice"><i class="ti ti-microphone"></i></button>
+          <input class="text-input" type="text" id="goal-input" placeholder="What will you achieve tomorrow?" />
+          <button class="add-btn" id="goal-go"><i class="ti ti-plus"></i> Add</button>
+        </div>
+        <div class="field-hint">e.g. "Finish the login flow and write tests"</div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-list-check"></i> Today's goals</div>
+        <div id="goals-today"><div class="empty-state"><i class="ti ti-target"></i><p>No goals set for today</p></div></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-moon"></i> Tomorrow's goals</div>
+        <div id="goals-tmr"><div class="empty-state"><i class="ti ti-moon"></i><p>Set intentions before you rest</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HABITS -->
+  <div class="page" id="page-habits">
+    <div class="page-intro" style="padding-top:12px">
+      <div class="page-intro-title">Habit check-in</div>
+      <div class="page-intro-sub">Evening reflection · voice-powered</div>
+    </div>
+    <div class="sec" style="margin-top:10px">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-message-chatbot"></i> Evening conversation <span style="margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--ink-5);letter-spacing:.08em">AI</span></div>
+        <div class="chat-area" id="chat-area">
+          <div class="bubble loading">Tap the mic and tell me about your day...</div>
+        </div>
+        <div class="chat-input-row">
+          <button class="mic-btn" id="mic-chat" aria-label="Voice"><i class="ti ti-microphone"></i></button>
+          <input class="text-input" type="text" id="chat-input" placeholder="How was your day?" style="flex:1" />
+          <button class="send-btn" id="chat-send"><i class="ti ti-send"></i></button>
+        </div>
+        <div class="field-hint" style="margin-top:5px">The AI will naturally ask about each of your habits</div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-flame"></i> Today's habits <span class="badge-sm" id="habit-score-badge" style="display:none"></span></div>
+        <div id="habit-list"></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-calendar-week"></i> Last 7 days</div>
+        <div id="week-grid-area"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="page" id="page-summary">
+    <div class="page-intro" style="padding-top:12px">
+      <div class="page-intro-title">Day summary</div>
+      <div class="page-intro-sub">AI-generated · end of day</div>
+    </div>
+    <div class="sec" style="margin-top:10px">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-sparkles"></i> Summary</div>
+        <div id="summary-content"><div class="empty-state"><i class="ti ti-robot"></i><p>Log entries then generate your summary</p></div></div>
+        <button class="gen-btn" id="gen-summary"><i class="ti ti-refresh"></i> Generate with AI</button>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-chart-bar"></i> Time in activities</div>
+        <div id="breakdown"><div class="empty-state"><i class="ti ti-clock"></i><p>Log activities to see your time breakdown</p></div></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-calendar"></i> History</div>
+        <div id="history-list"><div class="empty-state"><i class="ti ti-history"></i><p>No history yet</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="page-intro" style="padding-top:12px">
+      <div class="page-intro-title">Settings</div>
+      <div class="page-intro-sub">Preferences &amp; configuration</div>
+    </div>
+
+    <div class="sec" style="margin-top:10px">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-robot"></i> AI connection</div>
+        <div class="settings-row">
+          <div class="settings-icon" style="background:var(--accent-bg)"><i class="ti ti-key" style="color:var(--accent)"></i></div>
+          <div class="settings-info">
+            <div class="settings-label">Anthropic API key</div>
+            <div class="settings-sub" id="key-sub">Not connected</div>
+          </div>
+          <span class="settings-status" id="key-status-badge"></span>
+        </div>
+        <div class="key-form">
+          <div class="key-form-label">Enter your key</div>
+          <input class="api-input" type="password" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off" />
+          <div class="key-actions">
+            <button class="api-save-btn" id="api-save-btn"><i class="ti ti-check" style="font-size:13px;margin-right:4px"></i> Save key</button>
+            <button class="key-clear-btn" id="key-clear-btn" style="display:none"><i class="ti ti-trash" style="font-size:13px;margin-right:4px"></i> Remove</button>
+          </div>
+          <div class="api-ok" id="api-ok"><i class="ti ti-circle-check"></i> Key saved — AI features active</div>
+          <div class="api-note">Your key is stored only in this device's local storage and sent directly to Anthropic's API. Never shared elsewhere. Get a key at <a href="https://console.anthropic.com" style="color:var(--accent)">console.anthropic.com</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-flame"></i> Your habits</div>
+        <div id="settings-habits-list"></div>
+        <div class="api-note" style="margin-top:10px">To add or change habits, edit the HABITS array in the source code.</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-info-circle"></i> About</div>
+        <div style="font-family:var(--sans);font-size:13px;color:var(--ink-3);line-height:1.7">
+          <div style="margin-bottom:6px"><span style="font-family:var(--serif);font-style:italic;color:var(--ink-2)">Daily Journal</span> — a personal productivity tracker with voice logging, habit check-ins, and AI-powered summaries.</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--ink-5)">All data stored locally on your device · No account needed</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTALL BANNER -->
+  <div class="install-banner" id="install-banner">
+    <div class="install-icon">📓</div>
+    <div class="install-text">
+      <div class="install-title">Add to Home Screen</div>
+      <div class="install-sub">Works offline · feels native</div>
+    </div>
+    <div class="install-actions">
+      <button class="install-add-btn" id="install-btn">Install</button>
+      <button class="install-skip" id="install-dismiss">Not now</button>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-page="today"><i class="ti ti-layout-list"></i>Today</button>
+  <button class="nav-btn" data-page="goals"><i class="ti ti-target"></i>Goals</button>
+  <button class="nav-btn" data-page="habits"><i class="ti ti-flame"></i>Habits</button>
+  <button class="nav-btn" data-page="summary"><i class="ti ti-sparkles"></i>Summary</button>
+  <button class="nav-btn" data-page="settings" id="nav-settings" style="position:relative"><i class="ti ti-settings"></i>Settings<span class="nav-dot" id="nav-dot"></span></button>
+</nav>
+
+<script>
+const HABITS=[
+  {id:'audiobook',name:'Audiobook listening',icon:'ti-headphones',color:'#5a3a8a',bg:'#f0eaf8'},
+  {id:'exercise',name:'Exercise',icon:'ti-run',color:'#2a6b4a',bg:'#e8f2ec'},
+  {id:'driving',name:'Driving',icon:'ti-car',color:'#2a4a7a',bg:'#e8eef5'},
+  {id:'no_ph',name:'No phone (No PH)',icon:'ti-phone-off',color:'#7a3020',bg:'#f5e8e7'},
+  {id:'work_early',name:'Work immediately after waking',icon:'ti-sun',color:'#7a4a0a',bg:'#f9ede0'},
+  {id:'mindful_speak',name:'Mindful speaking',icon:'ti-brain',color:'#6b3a60',bg:'#f5e8f2'},
+  {id:'no_doom',name:'No doomscrolling',icon:'ti-device-mobile-off',color:'#404040',bg:'#eeede8'}
+];
+const BAR_COLORS=['#c2692a','#2a6b4a','#2a4a7a','#5a3a8a','#a0302a','#7a4a0a'];
+const TYPE_DOT={activity:'#2a4a7a',project:'#2a6b4a',blocker:'#a0302a',note:'#c2692a'};
+const TYPE_LABEL={activity:'Activity',project:'Project',blocker:'Blocker',note:'Note'};
+let selType='activity',selManualType='activity',chatHistory=[],chatStarted=false;
+
+function todayKey(){return new Date().toISOString().slice(0,10)}
+function ydayKey(){const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10)}
+function tmrKey(){const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10)}
+function weekKeys(){const k=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);k.push(d.toISOString().slice(0,10));}return k}
+function loadDay(k){return JSON.parse(localStorage.getItem('pj6_'+k)||'{"entries":[],"goals":[],"habits":{},"summary":""}')}
+function saveDay(k,d){localStorage.setItem('pj6_'+k,JSON.stringify(d))}
+const td=()=>loadDay(todayKey());
+const saveTd=d=>saveDay(todayKey(),d);
+const getKey=()=>localStorage.getItem('pj6_key')||'';
+const saveKey=k=>localStorage.setItem('pj6_key',k);
+
+function checkApiUI(){
+  const has=!!getKey();
+  // nav dot
+  const dot=document.getElementById('nav-dot');
+  if(dot)dot.style.display=has?'none':'block';
+}
+function renderSettings(){
+  const has=!!getKey();
+  const sub=document.getElementById('key-sub');
+  const badge=document.getElementById('key-status-badge');
+  const clearBtn=document.getElementById('key-clear-btn');
+  if(sub)sub.textContent=has?'Connected · key stored locally':'Not connected';
+  if(badge){badge.textContent=has?'Active':'No key';badge.className='settings-status '+(has?'status-set':'status-unset');}
+  if(clearBtn)clearBtn.style.display=has?'':'none';
+  // habits list
+  const hl=document.getElementById('settings-habits-list');
+  if(hl){
+    hl.innerHTML='';
+    HABITS.forEach(h=>{
+      const row=document.createElement('div');row.className='settings-row';
+      row.innerHTML=`<div class="settings-icon" style="background:${h.bg}"><i class="ti ${h.icon}" style="color:${h.color}"></i></div>
+        <div class="settings-info"><div class="settings-label">${h.name}</div><div class="settings-sub">ID: ${h.id}</div></div>`;
+      hl.appendChild(row);
+    });
+  }
+}
+document.getElementById('api-save-btn').addEventListener('click',()=>{
+  const v=document.getElementById('api-key-input').value.trim();if(!v)return;
+  saveKey(v);document.getElementById('api-key-input').value='';
+  document.getElementById('api-ok').style.display='block';
+  setTimeout(()=>document.getElementById('api-ok').style.display='none',2500);
+  checkApiUI();renderSettings();
+});
+document.getElementById('key-clear-btn').addEventListener('click',()=>{
+  if(!confirm('Remove your API key? AI features will stop working.'))return;
+  localStorage.removeItem('pj6_key');
+  checkApiUI();renderSettings();
+});
+
+function fmtTime(ts){const d=new Date(ts);let h=d.getHours(),m=d.getMinutes();const a=h>=12?'pm':'am';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${a}`}
+function fmtDur(ms){const t=Math.round(ms/60000);if(t<1)return '<1m';if(t<60)return `${t}m`;const h=Math.floor(t/60),m=t%60;return m?`${h}h ${m}m`:`${h}h`}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function inputToTs(v){const[hh,mm]=v.split(':').map(Number);const d=new Date();d.setHours(hh,mm,0,0);return d.getTime()}
+
+function addEntry(text,type,ts,manual){
+  if(!text.trim())return;const data=td();
+  data.entries.push({id:Date.now()+(Math.random()*99|0),text:text.trim(),type,ts:ts||Date.now(),manual:!!manual});
+  data.entries.sort((a,b)=>a.ts-b.ts);saveTd(data);renderToday();renderBreakdown();
+}
+function delEntry(id){const data=td();data.entries=data.entries.filter(e=>e.id!==id);saveTd(data);renderToday();renderBreakdown()}
+function addGoal(text,key){if(!text.trim())return;const k=key||tmrKey(),data=loadDay(k);data.goals=data.goals||[];data.goals.push({id:Date.now(),text:text.trim(),done:false});saveDay(k,data);renderGoals()}
+function toggleGoal(id,k){const data=loadDay(k),g=data.goals.find(x=>x.id===id);if(g)g.done=!g.done;saveDay(k,data);renderGoals()}
+function delGoal(id,k){const data=loadDay(k);data.goals=data.goals.filter(g=>g.id!==id);saveDay(k,data);renderGoals()}
+function setHabit(id,val){const d=td();d.habits=d.habits||{};d.habits[id]=val;saveTd(d);renderHabits()}
+function getStreak(hId){let s=0;const d=new Date();while(true){const k=d.toISOString().slice(0,10);if((loadDay(k).habits||{})[hId]===true)s++;else break;d.setDate(d.getDate()-1);}return s}
+
+function renderToday(){
+  const data=td(),entries=data.entries||[];
+  document.getElementById('s-entries').textContent=entries.length;
+  document.getElementById('s-blockers').textContent=entries.filter(e=>e.type==='blocker').length;
+  const fc=document.getElementById('feed-count');fc.textContent=entries.length;fc.style.display=entries.length?'':'none';
+  const feed=document.getElementById('feed');
+  if(!entries.length){feed.innerHTML='<div class="empty-state"><i class="ti ti-feather"></i><p>Nothing yet — your day awaits</p></div>';return}
+  feed.innerHTML='';
+  entries.forEach((e,i)=>{
+    const isLast=i===entries.length-1;
+    const div=document.createElement('div');div.className='feed-entry';
+    div.innerHTML=`<div class="feed-dot-col"><div class="feed-dot" style="background:${TYPE_DOT[e.type]}"></div>${!isLast?'<div class="feed-line"></div>':''}</div>
+      <div class="feed-body"><div class="feed-meta"><span class="feed-time">${fmtTime(e.ts)}${e.manual?' · manual':''}</span><span class="feed-tag tag-${e.type}">${TYPE_LABEL[e.type]}</span></div><div class="feed-text">${esc(e.text)}</div></div>
+      <button class="feed-del" data-id="${e.id}" aria-label="Remove"><i class="ti ti-x" style="font-size:12px"></i></button>`;
+    feed.appendChild(div);
+  });
+}
+
+function renderGoals(){
+  const tk=todayKey(),tmk=tmrKey(),yk=ydayKey();
+  const tg=loadDay(tk).goals||[],tmg=loadDay(tmk).goals||[],yg=loadDay(yk).goals||[];
+  function makeItem(g,k,editable){
+    const div=document.createElement('div');div.className='goal-item';
+    div.innerHTML=`<div class="goal-check ${g.done?'done':''}" data-gid="${g.id}" data-gkey="${k}" style="${editable?'':'cursor:default;opacity:.4'}">${g.done?'<i class="ti ti-check"></i>':''}</div>
+      <span class="goal-text ${g.done?'done':''}">${esc(g.text)}</span>
+      <button class="goal-del" data-gid="${g.id}" data-gkey="${k}" aria-label="Remove"><i class="ti ti-x" style="font-size:11px"></i></button>`;
+    return div;
+  }
+  const te=document.getElementById('goals-today');te.innerHTML='';
+  if(!tg.length)te.innerHTML='<div class="empty-state" style="padding:12px 0"><i class="ti ti-target"></i><p>No goals set for today</p></div>';
+  else tg.forEach(g=>te.appendChild(makeItem(g,tk,true)));
+  const tme=document.getElementById('goals-tmr');tme.innerHTML='';
+  if(!tmg.length)tme.innerHTML='<div class="empty-state" style="padding:12px 0"><i class="ti ti-moon"></i><p>Set intentions before you rest</p></div>';
+  else tmg.forEach(g=>tme.appendChild(makeItem(g,tmk,false)));
+  const rev=document.getElementById('yday-review');
+  if(yg.length){
+    const done=yg.filter(g=>g.done).length;
+    rev.innerHTML=`<div class="review-banner"><div class="review-banner-title"><i class="ti ti-history"></i> Yesterday — ${done} of ${yg.length} achieved</div>${yg.map(g=>`<div class="review-item"><i class="ti ti-${g.done?'circle-check':'circle-x'}" style="font-size:13px;flex-shrink:0"></i><span style="flex:1">${esc(g.text)}</span><span class="result-badge ${g.done?'badge-achieved':'badge-missed'}">${g.done?'done':'missed'}</span></div>`).join('')}</div>`;
+  }else rev.innerHTML='';
+}
+
+function renderHabits(){
+  const data=td(),habits=data.habits||{};
+  const list=document.getElementById('habit-list');list.innerHTML='';
+  let done=0,total=0;
+  HABITS.forEach(h=>{
+    const val=habits[h.id];if(val===true)done++;if(val!==undefined&&val!==null)total++;
+    const streak=getStreak(h.id);
+    const row=document.createElement('div');row.className='habit-row';
+    row.innerHTML=`<div class="habit-icon-wrap" style="background:${h.bg}"><i class="ti ${h.icon}" style="color:${h.color}"></i></div>
+      <div class="habit-info"><div class="habit-name">${h.name}</div><div class="habit-streak ${streak>0?'on':''}">${streak>0?`${streak} day streak`:'No streak yet'}</div></div>
+      <div class="habit-btns"><button class="hbtn ${val===true?'yes':''}" data-hid="${h.id}" data-val="true" aria-label="Done"><i class="ti ti-check" style="font-size:13px"></i></button><button class="hbtn ${val===false?'no':''}" data-hid="${h.id}" data-val="false" aria-label="Skip"><i class="ti ti-x" style="font-size:13px"></i></button></div>`;
+    list.appendChild(row);
+  });
+  const badge=document.getElementById('habit-score-badge');badge.textContent=total?`${done}/${HABITS.length}`:'';badge.style.display=total?'':'none';
+  renderWeekGrid();
+}
+
+function renderWeekGrid(){
+  const area=document.getElementById('week-grid-area'),wk=weekKeys(),today=todayKey();area.innerHTML='';
+  HABITS.forEach(h=>{
+    const wrap=document.createElement('div');wrap.className='week-habit';
+    let cells='';
+    wk.forEach(k=>{
+      const v=(loadDay(k).habits||{})[h.id],isFuture=k>today;
+      const cls=isFuture?'done-none':v===true?'done-y':v===false?'done-n':'done-none';
+      const lbl=new Date(k+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'}).slice(0,1);
+      cells+=`<div class="wcell ${cls}">${lbl}</div>`;
+    });
+    wrap.innerHTML=`<div class="week-habit-hd"><i class="ti ${h.icon}" style="color:${h.color}"></i>${h.name}</div><div class="week-grid">${cells}</div>`;
+    area.appendChild(wrap);
+  });
+}
+
+function renderBreakdown(){
+  const data=td(),acts=data.entries.filter(e=>e.type==='activity');
+  const bdEl=document.getElementById('breakdown');
+  if(!acts.length){bdEl.innerHTML='<div class="empty-state"><i class="ti ti-clock"></i><p>Log activities to see your time breakdown</p></div>';return}
+  const slots=acts.map((e,i)=>({text:e.text,dur:Math.max(0,(i<acts.length-1?acts[i+1].ts:Date.now())-e.ts)}));
+  const map={};slots.forEach(s=>{if(!map[s.text])map[s.text]=0;map[s.text]+=s.dur;});
+  const sorted=Object.entries(map).sort((a,b)=>b[1]-a[1]);const maxMs=sorted[0][1];
+  bdEl.innerHTML='';
+  sorted.forEach(([name,ms],i)=>{
+    const pct=Math.round((ms/maxMs)*100);const div=document.createElement('div');div.className='bar-row';
+    div.innerHTML=`<div class="bar-label-row"><span class="bar-name">${esc(name)}</span><span class="bar-dur">${fmtDur(ms)}</span></div><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${BAR_COLORS[i%BAR_COLORS.length]}"></div></div>`;
+    bdEl.appendChild(div);
+  });
+}
+
+function renderHistory(){
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('pj6_')&&k.length===14)keys.push(k.replace('pj6_',''));}
+  keys.sort().reverse();
+  const past=keys.filter(k=>k!==todayKey());
+  const el=document.getElementById('history-list');
+  if(!past.length){el.innerHTML='<div class="empty-state"><i class="ti ti-history"></i><p>No history yet</p></div>';return}
+  el.innerHTML='';
+  past.forEach(k=>{
+    const d=loadDay(k),entries=d.entries||[],goals=d.goals||[],habits=d.habits||{};
+    const doneGoals=goals.filter(g=>g.done).length,doneHabits=Object.values(habits).filter(v=>v===true).length,totalHabits=Object.values(habits).filter(v=>v!==null&&v!==undefined).length;
+    const label=new Date(k+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    const div=document.createElement('div');div.className='history-day';
+    div.innerHTML=`<div class="history-day-hd"><span class="history-day-date">${label}</span><span class="history-day-count">${entries.length} entries</span></div>
+      <div class="history-chips">${goals.length?`<span class="hchip hchip-g">${doneGoals}/${goals.length} goals</span>`:''} ${totalHabits?`<span class="hchip hchip-p">${doneHabits}/${totalHabits} habits</span>`:''} ${d.summary?`<span class="hchip hchip-a">summary</span>`:''}</div>
+      ${d.summary?`<div class="history-snippet">"${esc(d.summary.slice(0,110))}${d.summary.length>110?'…':''}"</div>`:''}`;
+    el.appendChild(div);
+  });
+}
+
+async function apiCall(messages,system,maxTokens=800){
+  const key=getKey();if(!key)throw new Error('No API key');
+  const body={model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages};
+  if(system)body.system=system;
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
+  const json=await res.json();return json.content?.[0]?.text||'';
+}
+
+async function generateSummary(){
+  if(!getKey()){alert('Enter your Anthropic API key first.');return}
+  const data=td(),entries=data.entries||[];
+  if(!entries.length){document.getElementById('summary-content').innerHTML='<div class="empty-state"><i class="ti ti-robot"></i><p>Nothing logged yet</p></div>';return}
+  document.getElementById('summary-content').innerHTML='<div class="summary-box" style="color:var(--ink-4);font-style:italic">Crafting your summary...</div>';
+  const btn=document.getElementById('gen-summary');btn.disabled=true;
+  const acts=entries.filter(e=>e.type==='activity');
+  const slots=acts.map((e,i)=>({text:e.text,dur:Math.max(0,(i<acts.length-1?acts[i+1].ts:Date.now())-e.ts)}));
+  const habits=data.habits||{};
+  const habitLine=HABITS.map(h=>`${h.name}: ${habits[h.id]===true?'Done':habits[h.id]===false?'Skipped':'Not logged'}`).join(', ');
+  const yGoals=loadDay(ydayKey()).goals||[];
+  const prompt=`Summarize this person's day from their journal. Warm, human, perceptive. Plain text only.
+
+Activities: ${slots.map(s=>`${s.text} (${fmtDur(s.dur)})`).join('; ')||'None'}
+Project work: ${entries.filter(e=>e.type==='project').map(e=>e.text).join('; ')||'None'}
+Blockers: ${entries.filter(e=>e.type==='blocker').map(e=>e.text).join('; ')||'None'}
+Notes: ${entries.filter(e=>e.type==='note').map(e=>e.text).join('; ')||'None'}
+Habits: ${habitLine}
+Yesterday's goals: ${yGoals.length?yGoals.map(g=>`${g.text} (${g.done?'achieved':'missed'})`).join('; '):'None set'}
+Tomorrow's goals: ${(loadDay(tmrKey()).goals||[]).map(g=>g.text).join('; ')||'None set yet'}
+
+4-5 sentences. Cover accomplishments, blockers, habit performance, goal progress. End with a warm note about tomorrow.`;
+  try{
+    const text=await apiCall([{role:'user',content:prompt}]);
+    data.summary=text;saveTd(data);
+    document.getElementById('summary-content').innerHTML=`<div class="summary-box">${esc(text)}</div>`;
+  }catch(e){document.getElementById('summary-content').innerHTML='<div class="summary-box" style="color:var(--red)">Error — check your API key.</div>';}
+  btn.disabled=false;
+}
+
+function addBubble(text,role){
+  const area=document.getElementById('chat-area');
+  const div=document.createElement('div');div.className=`bubble ${role}`;div.textContent=text;
+  area.appendChild(div);area.scrollTop=area.scrollHeight;return div;
+}
+function showTyping(){const area=document.getElementById('chat-area');const div=document.createElement('div');div.className='bubble loading';div.id='chat-typing';div.textContent='thinking...';area.appendChild(div);area.scrollTop=area.scrollHeight;}
+function removeTyping(){const el=document.getElementById('chat-typing');if(el)el.remove()}
+
+async function sendChat(userText){
+  if(!getKey()){alert('Enter your Anthropic API key first.');return}
+  if(!userText.trim())return;
+  if(!chatStarted){chatStarted=true;document.getElementById('chat-area').innerHTML='';}
+  addBubble(userText,'user');document.getElementById('chat-input').value='';
+  chatHistory.push({role:'user',content:userText});showTyping();
+  const data=td(),entries=data.entries||[],habits=data.habits||{};
+  const habitStatus=HABITS.map(h=>{const v=habits[h.id];return `${h.name}: ${v===true?'done':v===false?'skipped':'unknown'}`;}).join(', ');
+  const sys=`You are a warm, perceptive end-of-day habit coach in natural conversation. User is doing their evening journal check-in.
+
+Their 7 habits: ${HABITS.map(h=>h.name).join(', ')}.
+Current status: ${habitStatus}
+Today's journal: ${entries.map(e=>`[${e.type}] ${e.text}`).join('; ')||'Nothing logged'}
+
+Flow:
+1. First ask how their day was. Let them speak freely.
+2. Warmly acknowledge what they shared. Naturally check "unknown" habits one at a time — conversationally, not as a list. Infer from context (mention gym → exercise done).
+3. Brief encouragement after each answer, then next habit.
+4. Once all done, warm closing with habit score and a motivating note.
+
+IMPORTANT: When you determine a habit result, append at the very end:
+{"habit_updates": {"exercise": true, "audiobook": false}}
+
+Exact IDs: audiobook, exercise, driving, no_ph, work_early, mindful_speak, no_doom
+
+Replies 2-3 sentences max. Human and warm.`;
+  try{
+    const full=await apiCall(chatHistory,sys,500);removeTyping();
+    const jm=full.match(/\{[\s\S]*?"habit_updates"[\s\S]*?\}/);
+    let display=full;
+    if(jm){try{const p=JSON.parse(jm[0]);if(p.habit_updates){const d=td();d.habits=d.habits||{};Object.entries(p.habit_updates).forEach(([k,v])=>{d.habits[k]=v;});saveTd(d);renderHabits();}}catch(e){}display=full.replace(jm[0],'').trim();}
+    addBubble(display,'ai');chatHistory.push({role:'assistant',content:full});
+  }catch(e){removeTyping();addBubble('Something went wrong — check your connection.','ai');}
+}
+
+function initChat(){if(!chatStarted){document.getElementById('chat-area').innerHTML='';sendChat("Hi, I'm ready for my evening check-in.");}}
+
+function makeMic(btnId,inputId,cb){
+  const btn=document.getElementById(btnId);if(!btn)return;
+  const has=('webkitSpeechRecognition' in window||'SpeechRecognition' in window);
+  if(!has){btn.style.opacity='.3';btn.style.cursor='not-allowed';btn.title='Voice not supported';return}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();rec.continuous=false;rec.interimResults=false;rec.lang='en-US';
+  let on=false;
+  rec.onresult=e=>{const t=e.results[0][0].transcript;if(inputId)document.getElementById(inputId).value=t;btn.classList.remove('listening');on=false;if(cb)cb(t);};
+  rec.onerror=rec.onend=()=>{btn.classList.remove('listening');on=false;};
+  btn.addEventListener('click',()=>{if(on){rec.stop();btn.classList.remove('listening');on=false;}else{try{rec.start();btn.classList.add('listening');on=true;}catch(e){}}});
+}
+
+document.querySelectorAll('.type-selector .type-chip[data-type]').forEach(p=>{
+  p.addEventListener('click',()=>{document.querySelectorAll('.type-selector .type-chip[data-type]').forEach(x=>x.classList.remove('sel'));p.classList.add('sel');selType=p.dataset.type;const ph={activity:'What are you doing now?',project:'What did you work on?',blocker:"What's blocking you?",note:'Any thoughts or notes?'};document.getElementById('log-input').placeholder=ph[selType];});
+});
+document.querySelectorAll('#manual-type-sel .type-chip[data-mtype]').forEach(p=>{
+  p.addEventListener('click',()=>{document.querySelectorAll('#manual-type-sel .type-chip[data-mtype]').forEach(x=>x.classList.remove('sel'));p.classList.add('sel');selManualType=p.dataset.mtype;});
+});
+document.getElementById('log-go').addEventListener('click',()=>{const v=document.getElementById('log-input').value.trim();if(!v)return;addEntry(v,selType);document.getElementById('log-input').value='';});
+document.getElementById('log-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('log-go').click();});
+document.getElementById('goal-go').addEventListener('click',()=>{const v=document.getElementById('goal-input').value.trim();if(!v)return;addGoal(v);document.getElementById('goal-input').value='';});
+document.getElementById('goal-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('goal-go').click();});
+document.getElementById('manual-toggle').addEventListener('click',()=>{const p=document.getElementById('manual-panel');p.classList.toggle('open');if(p.classList.contains('open')){const n=new Date();document.getElementById('m-time').value=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;}});
+document.getElementById('m-add').addEventListener('click',()=>{const t=document.getElementById('m-time').value,txt=document.getElementById('m-text').value.trim();if(!t||!txt)return;addEntry(txt,selManualType,inputToTs(t),true);document.getElementById('m-text').value='';document.getElementById('manual-panel').classList.remove('open');});
+document.getElementById('goals-today').addEventListener('click',e=>{const c=e.target.closest('.goal-check[data-gid]'),d=e.target.closest('.goal-del');if(c)toggleGoal(Number(c.dataset.gid),c.dataset.gkey);if(d)delGoal(Number(d.dataset.gid),d.dataset.gkey);});
+document.getElementById('goals-tmr').addEventListener('click',e=>{const d=e.target.closest('.goal-del');if(d)delGoal(Number(d.dataset.gid),d.dataset.gkey);});
+document.getElementById('habit-list').addEventListener('click',e=>{const b=e.target.closest('.hbtn');if(!b)return;setHabit(b.dataset.hid,b.dataset.val==='true');});
+document.getElementById('feed').addEventListener('click',e=>{const d=e.target.closest('.feed-del');if(d)delEntry(Number(d.dataset.id));});
+document.getElementById('chat-send').addEventListener('click',()=>sendChat(document.getElementById('chat-input').value));
+document.getElementById('chat-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('chat-send').click();});
+document.getElementById('gen-summary').addEventListener('click',generateSummary);
+document.querySelector('.bottom-nav').addEventListener('click',e=>{
+  const btn=e.target.closest('.nav-btn');if(!btn)return;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');const page=btn.dataset.page;
+  document.getElementById('page-'+page).classList.add('active');
+  if(page==='habits'){renderHabits();initChat();}
+  if(page==='summary'){renderBreakdown();renderHistory();const d=td();if(d.summary)document.getElementById('summary-content').innerHTML=`<div class="summary-box">${esc(d.summary)}</div>`;}
+  if(page==='history')renderHistory();
+  if(page==='goals')renderGoals();
+  if(page==='settings')renderSettings();
+});
+makeMic('mic-log','log-input',null);makeMic('mic-goal','goal-input',null);makeMic('mic-chat','chat-input',t=>sendChat(t));
+function tick(){
+  const now=new Date();
+  const chip=document.getElementById('date-chip');if(chip)chip.textContent=now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const lbl=document.getElementById('now-time-label');if(lbl){let h=now.getHours(),m=now.getMinutes();const a=h>=12?'PM':'AM';h=h%12||12;lbl.textContent=`${h}:${String(m).padStart(2,'0')} ${a}`;}
+}
+checkApiUI();renderToday();renderBreakdown();tick();setInterval(tick,1000);
+
+/* ── SERVICE WORKER ──────────────────────────── */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+/* ── INSTALL PROMPT ──────────────────────────── */
+let deferredInstallPrompt = null;
+const installBanner = document.getElementById('install-banner');
+const installBtn = document.getElementById('install-btn');
+const installDismiss = document.getElementById('install-dismiss');
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Only show if user hasn't dismissed before
+  if (!localStorage.getItem('pj6_install_dismissed')) {
+    setTimeout(() => { if (installBanner) installBanner.style.display = 'flex'; }, 2000);
+  }
+});
+
+if (installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    if (installBanner) installBanner.style.display = 'none';
+  });
+}
+if (installDismiss) {
+  installDismiss.addEventListener('click', () => {
+    if (installBanner) installBanner.style.display = 'none';
+    localStorage.setItem('pj6_install_dismissed', '1');
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  if (installBanner) installBanner.style.display = 'none';
+  deferredInstallPrompt = null;
+});
+</script>
+</body>
+</html>
