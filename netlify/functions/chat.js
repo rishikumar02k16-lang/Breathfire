@@ -1,7 +1,6 @@
 const https = require('https');
 
 exports.handler = async function(event, context) {
-  // Handle preflight CORS
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -14,25 +13,27 @@ exports.handler = async function(event, context) {
     };
   }
 
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-  }
-
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: 'API key not configured' })
+      body: JSON.stringify({ error: 'API key not configured on server' })
     };
   }
 
   try {
-    const requestBody = event.body;
+    // Parse and rebuild body with correct model
+    const incoming = JSON.parse(event.body);
+    const requestBody = JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: incoming.max_tokens || 600,
+      system: incoming.system,
+      messages: incoming.messages
+    });
+
+    console.log('Calling Anthropic with model: claude-haiku-4-5-20251001');
+    console.log('Messages count:', incoming.messages ? incoming.messages.length : 0);
 
     const result = await new Promise((resolve, reject) => {
       const options = {
@@ -51,11 +52,16 @@ exports.handler = async function(event, context) {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
+          console.log('Anthropic response status:', res.statusCode);
+          console.log('Anthropic response:', data.substring(0, 200));
           resolve({ statusCode: res.statusCode, body: data });
         });
       });
 
-      req.on('error', reject);
+      req.on('error', (e) => {
+        console.log('Request error:', e.message);
+        reject(e);
+      });
       req.write(requestBody);
       req.end();
     });
@@ -70,6 +76,7 @@ exports.handler = async function(event, context) {
     };
 
   } catch (error) {
+    console.log('Function error:', error.message);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
