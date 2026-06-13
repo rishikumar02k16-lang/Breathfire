@@ -1336,7 +1336,7 @@ function setOrbState(state) {
    AI API CALL
 ═══════════════════════════════════════════════ */
 async function callAI(messages, system, maxTokens=600) {
-  const body = { model:'claude-sonnet-4-20250514', max_tokens:maxTokens, messages };
+  const body = { model:'claude-sonnet-4-5', max_tokens:maxTokens, messages };
   if (system) body.system = system;
   const res = await fetch('/.netlify/functions/chat', {
     method: 'POST',
