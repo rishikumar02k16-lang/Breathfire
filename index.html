@@ -1193,34 +1193,50 @@ function showToast(msg, duration=2000) {
 }
 
 /* ═══════════════════════════════════════════════
-   TEXT-TO-SPEECH
+   TEXT-TO-SPEECH — Fixed for Android
 ═══════════════════════════════════════════════ */
 function speak(text, onEnd) {
   if (!ttsEnabled || !('speechSynthesis' in window)) { if(onEnd) onEnd(); return; }
   window.speechSynthesis.cancel();
 
-  const doSpeak = () => {
-    const utt = new SpeechSynthesisUtterance(text);
+  // Split into sentences to avoid Android 15-second TTS cutoff bug
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  let index = 0;
+
+  const speakNext = () => {
+    if (index >= sentences.length) {
+      setOrbState('idle');
+      if (onEnd) onEnd();
+      return;
+    }
+    const utt = new SpeechSynthesisUtterance(sentences[index].trim());
     utt.lang = 'en-IN';
-    utt.rate = 1.0;
+    utt.rate = 0.95;
     utt.pitch = 1;
     utt.volume = 1;
 
-    // Try to find a good voice
     const voices = window.speechSynthesis.getVoices();
     const preferred = voices.find(v => v.lang === 'en-IN') ||
-                      voices.find(v => v.lang.startsWith('en')) ||
+                      voices.find(v => v.lang.startsWith('en-')) ||
                       voices[0];
     if (preferred) utt.voice = preferred;
 
-    utt.onend = () => { setOrbState('idle'); if(onEnd) onEnd(); };
-    utt.onerror = () => { setOrbState('idle'); if(onEnd) onEnd(); };
-    setOrbState('speaking');
-    document.getElementById('ai-text').textContent = text;
+    utt.onend = () => { index++; speakNext(); };
+    utt.onerror = () => { index++; speakNext(); };
     window.speechSynthesis.speak(utt);
   };
 
-  // Voices may not be loaded yet on Android
+  setOrbState('speaking');
+  document.getElementById('ai-text').textContent = text;
+
+  // Android fix — resume speech synthesis if it pauses
+  const resumeTimer = setInterval(() => {
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    if (!window.speechSynthesis.speaking) clearInterval(resumeTimer);
+  }, 5000);
+
+  const doSpeak = () => { speakNext(); };
+
   if (window.speechSynthesis.getVoices().length > 0) {
     doSpeak();
   } else {
@@ -1228,8 +1244,7 @@ function speak(text, onEnd) {
       window.speechSynthesis.onvoiceschanged = null;
       doSpeak();
     };
-    // Fallback if voices never load
-    setTimeout(() => { if(orbState !== 'speaking') doSpeak(); }, 500);
+    setTimeout(() => { if (orbState !== 'speaking') doSpeak(); }, 500);
   }
 }
 
@@ -1239,14 +1254,15 @@ function stopSpeaking() {
 }
 
 /* ═══════════════════════════════════════════════
-   SPEECH RECOGNITION
+   SPEECH RECOGNITION — Fixed for Android
 ═══════════════════════════════════════════════ */
 function initRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
   const r = new SR();
-  r.continuous = false;
+  r.continuous = true;        // Keep listening — don't cut off mid-sentence
   r.interimResults = true;
+  r.maxAlternatives = 1;
   r.lang = getLang();
   return r;
 }
@@ -1259,43 +1275,62 @@ function startListening(onResult, onInterim) {
   recognition.lang = getLang();
 
   let finalTranscript = '';
-  let interimTranscript = '';
+  let silenceTimer = null;
 
-  recognition.onstart = () => { isListening = true; setOrbState('listening'); finalTranscript = ''; };
+  recognition.onstart = () => {
+    isListening = true;
+    setOrbState('listening');
+    finalTranscript = '';
+  };
 
   recognition.onresult = e => {
-    finalTranscript = '';
-    interimTranscript = '';
-    for (let i = 0; i < e.results.length; i++) {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) {
-        finalTranscript += e.results[i][0].transcript;
+        finalTranscript += e.results[i][0].transcript + ' ';
       } else {
-        interimTranscript += e.results[i][0].transcript;
+        interim += e.results[i][0].transcript;
       }
     }
-    if (onInterim && interimTranscript) {
-      onInterim(interimTranscript);
-    }
-    if (onInterim && finalTranscript) {
-      onInterim(finalTranscript);
+
+    // Show what we hear in real time
+    const display = (finalTranscript + interim).trim();
+    if (onInterim && display) onInterim(display);
+
+    // After 1.5 seconds of silence after final result, submit
+    if (finalTranscript.trim()) {
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        if (finalTranscript.trim()) {
+          stopListening();
+          onResult(finalTranscript.trim());
+        }
+      }, 1500);
     }
   };
 
   recognition.onerror = e => {
     console.log('Speech error:', e.error);
+    if (e.error === 'no-speech') {
+      // Restart listening if no speech detected
+      isListening = false;
+      setTimeout(() => {
+        if (orbState !== 'thinking' && orbState !== 'speaking') {
+          startListening(onResult, onInterim);
+        }
+      }, 500);
+      return;
+    }
     isListening = false;
     setOrbState('idle');
   };
 
   recognition.onend = () => {
     isListening = false;
-    // On Android, onend fires after speech stops — trigger callback here
-    if (finalTranscript && finalTranscript.trim()) {
+    clearTimeout(silenceTimer);
+    if (finalTranscript.trim()) {
       onResult(finalTranscript.trim());
-    } else if (interimTranscript && interimTranscript.trim()) {
-      // Fallback: use interim if no final result (common on Android)
-      onResult(interimTranscript.trim());
-    } else {
+    } else if (orbState === 'listening') {
       setOrbState('idle');
     }
   };
@@ -1304,6 +1339,7 @@ function startListening(onResult, onInterim) {
 }
 
 function stopListening() {
+  clearTimeout(window._silenceTimer);
   if (recognition && isListening) { try { recognition.stop(); } catch(e) {} }
   isListening = false;
 }
@@ -1369,29 +1405,25 @@ function buildVoiceSystem() {
   }).join(', ');
   const todayGoals = (loadDay(todayKey()).goals||[]).map(g=>`${g.text}(${g.done?'done':'pending'})`).join(', ');
 
-  return `You are Rishi's personal voice AI journal assistant. You speak in short, natural sentences — like a smart friend, not a bot.
+  return `You are Rishi's personal voice AI journal assistant. Speak in short natural sentences like a smart friend.
 
-TODAY'S DATE: ${todayKey()}
-TODAY'S ENTRIES: ${entries.map(e=>`[${e.type}] ${e.text} at ${fmtTime(e.ts)}`).join('; ')||'nothing yet'}
-TODAY'S HABITS: ${habitStatus}
-TODAY'S GOALS: ${todayGoals||'none set'}
-TOMORROW'S GOALS: ${(loadDay(tmrKey()).goals||[]).map(g=>g.text).join(', ')||'none set'}
+TODAY: ${todayKey()}
+ENTRIES TODAY: ${entries.map(e=>`[${e.type}] ${e.text}`).join('; ')||'nothing yet'}
+HABITS TODAY: ${habitStatus}
+GOALS TODAY: ${todayGoals||'none'}
+TOMORROW GOALS: ${(loadDay(tmrKey()).goals||[]).map(g=>g.text).join(', ')||'none set'}
 
-CAPABILITIES — you can:
-1. LOG entries — when user says something like "I just had breakfast" or "I was at the gym" — confirm it warmly and include at end: [LOG:activity:I had breakfast] or [LOG:project:worked on login feature] etc
-2. HABIT CHECK-IN — ask about unknown habits one at a time naturally. When determined include: [HABIT:exercise:true] or [HABIT:no_doom:false]
-3. SET GOALS — when user says what they plan for tomorrow, include: [GOAL:tomorrow:finish the Loka script]
-4. READ SUMMARY — give a spoken summary of their day
-5. GENERAL CHAT — answer questions about their day, encourage, motivate
+At the END of every reply, include action codes using pipe separator:
+- Log activity: [LOG|activity|text here]
+- Log project work: [LOG|project|text here]  
+- Log blocker: [LOG|blocker|text here]
+- Mark habit done: [HABIT|exercise|true]
+- Mark habit skipped: [HABIT|no_doom|false]
+- Save goal for tomorrow: [GOAL|tomorrow|text here]
 
-RULES:
-- Keep replies to 1-3 sentences max for voice
-- Sound warm, natural, like a coach who knows them well
-- Always extract actions and include the [ACTION:...] codes at the END of your reply
-- After logging something say "Got it" and confirm naturally
-- Never say "I've logged that" in a robotic way
-- Infer context — if they say "just finished my run" that means exercise done
-- You know Rishi works at BetterInvest and is building Loka, an AI content company`;
+GOAL RULE: If user says anything like I want to, I plan to, tomorrow I will, my goal is — ALWAYS add [GOAL|tomorrow|their goal text]. This is critical.
+
+Keep replies 2-3 sentences. Be warm and encouraging. You know Rishi works at BetterInvest and builds Loka.`;
 }
 
 async function processVoiceInput(userText) {
@@ -1406,8 +1438,8 @@ async function processVoiceInput(userText) {
   try {
     const reply = await callAI(voiceConvHistory, buildVoiceSystem());
 
-    // Parse action codes
-    const actionRegex = /\[(LOG|HABIT|GOAL):([^\]]+)\]/g;
+    // Parse action codes using pipe separator
+    const actionRegex = /\[(LOG|HABIT|GOAL)\|([^\|]+)\|([^\]]+)\]/g;
     let match;
     const data = td();
     data.habits = data.habits || {};
@@ -1415,27 +1447,26 @@ async function processVoiceInput(userText) {
 
     while ((match = actionRegex.exec(reply)) !== null) {
       actionsFound = true;
-      const [, type, payload] = match;
+      const [, type, subtype, text] = match;
       if (type === 'LOG') {
-        const parts = payload.split(':');
-        const entryType = parts[0] || 'activity';
-        const text = parts.slice(1).join(':').trim();
-        if (text) {
-          data.entries.push({ id:Date.now()+(Math.random()*99|0), text, type:entryType, ts:Date.now(), manual:false });
+        const entryType = ['activity','project','blocker','note'].includes(subtype) ? subtype : 'activity';
+        if (text.trim()) {
+          data.entries.push({ id:Date.now()+(Math.random()*99|0), text:text.trim(), type:entryType, ts:Date.now(), manual:false });
           data.entries.sort((a,b)=>a.ts-b.ts);
+          showToast(`✓ Logged: ${text.trim().slice(0,40)}`);
         }
       } else if (type === 'HABIT') {
-        const [habitId, val] = payload.split(':');
-        if (habitId) data.habits[habitId.trim()] = val.trim() === 'true';
+        data.habits[subtype.trim()] = text.trim() === 'true';
+        const h = HABITS.find(h => h.id === subtype.trim());
+        if (h) showToast(`✓ Habit: ${h.name} — ${text.trim()==='true'?'Done':'Skipped'}`);
       } else if (type === 'GOAL') {
-        const [when, ...textParts] = payload.split(':');
-        const text = textParts.join(':').trim();
-        const key = when.trim() === 'tomorrow' ? tmrKey() : todayKey();
-        if (text) {
+        const key = subtype.trim() === 'tomorrow' ? tmrKey() : todayKey();
+        if (text.trim()) {
           const gdata = loadDay(key);
           gdata.goals = gdata.goals || [];
-          gdata.goals.push({ id:Date.now(), text, done:false });
+          gdata.goals.push({ id:Date.now(), text:text.trim(), done:false });
           saveDay(key, gdata);
+          showToast(`✓ Goal saved: ${text.trim().slice(0,40)}`);
         }
       }
     }
@@ -1454,7 +1485,7 @@ async function processVoiceInput(userText) {
     // Speak response
     speak(displayText, null);
 
-    // Auto-listen after a delay — don't wait for TTS to finish
+    // Auto-listen after AI finishes speaking — wait longer so TTS completes
     setTimeout(() => {
       if (orbState !== 'listening' && orbState !== 'thinking') {
         startListening(
@@ -1462,7 +1493,7 @@ async function processVoiceInput(userText) {
           interim => { document.getElementById('user-text').textContent = interim; }
         );
       }
-    }, 2000);
+    }, 4000);
 
   } catch(e) {
     setOrbState('idle');
@@ -1524,24 +1555,73 @@ document.getElementById('orb-btn').addEventListener('click', () => {
 document.querySelectorAll('.qa-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const cmd = btn.dataset.cmd;
-    const prompts = {
-      log: "What would you like to log?",
-      checkin: "Let's do your habit check-in. Tell me about your day and I'll ask about each habit.",
-      goals: "What are you planning to achieve tomorrow?",
-      summary: "Let me give you a summary of your day."
-    };
-    const text = prompts[cmd];
-    document.getElementById('ai-text').textContent = text;
-    speak(text, () => {
-      if (cmd === 'summary') {
-        generateAndSpeakSummary();
-      } else {
+
+    if (!getApiKey()) {
+      showToast('Add API key in Settings first');
+      navigateTo('settings');
+      return;
+    }
+
+    if (cmd === 'summary') {
+      const text = "Let me summarise your day for you.";
+      document.getElementById('ai-text').textContent = text;
+      speak(text, null);
+      setTimeout(() => generateAndSpeakSummary(), 1000);
+      return;
+    }
+
+    if (cmd === 'checkin') {
+      // Build a focused habit check-in prompt
+      const data = td();
+      const habits = data.habits || {};
+      const unknown = HABITS.filter(h => habits[h.id] === undefined || habits[h.id] === null);
+      if (unknown.length === 0) {
+        const msg = "You've already checked in all your habits today! Great job.";
+        document.getElementById('ai-text').textContent = msg;
+        speak(msg, null);
+        return;
+      }
+      const msg = `Let's check in on your habits. You have ${unknown.length} left to log. Tell me about your day and I'll ask about each one.`;
+      document.getElementById('ai-text').textContent = msg;
+      // Set a focused context for check-in
+      voiceConvHistory = [];
+      voiceConvHistory.push({
+        role: 'user',
+        content: `Start my habit check-in. The habits I haven't logged yet are: ${unknown.map(h=>h.name).join(', ')}. Ask me about each one naturally.`
+      });
+      speak(msg, null);
+      setTimeout(() => {
+        processVoiceInput(`Start my habit check-in. Ask me about each of these habits one by one: ${unknown.map(h=>h.name).join(', ')}`);
+      }, 1000);
+      return;
+    }
+
+    if (cmd === 'goals') {
+      voiceConvHistory = [];
+      const msg = "What do you want to achieve tomorrow? Tell me your goals and I'll save them.";
+      document.getElementById('ai-text').textContent = msg;
+      speak(msg, null);
+      setTimeout(() => {
         startListening(
           t => processVoiceInput(t),
           interim => { document.getElementById('user-text').textContent = interim; }
         );
-      }
-    });
+      }, 1500);
+      return;
+    }
+
+    if (cmd === 'log') {
+      const msg = "What are you doing right now? Just tell me.";
+      document.getElementById('ai-text').textContent = msg;
+      speak(msg, null);
+      setTimeout(() => {
+        startListening(
+          t => processVoiceInput(t),
+          interim => { document.getElementById('user-text').textContent = interim; }
+        );
+      }, 1500);
+      return;
+    }
   });
 });
 
